@@ -1,11 +1,20 @@
-from flask import Flask,render_template,url_for
+from flask import Flask,render_template,url_for,redirect,request
 from flask_bootstrap import Bootstrap
 from flask_wtf import FlaskForm
 from wtforms import StringField,PasswordField,BooleanField
 from wtforms.validators import InputRequired,Email,Length
 import sqlite3
 from flask_sqlalchemy import SQLAlchemy
+from PIL import Image
+
+import cv2
+import numpy as np
+import os
+
+
+
 app = Flask(__name__)
+face_classifier = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
 conn = sqlite3.connect("user_database.db")
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:////user_database.db"
 
@@ -35,18 +44,22 @@ class registerForm(FlaskForm):
     email = StringField("email" , validators=[ InputRequired(),Length(max=50)])
     username = StringField("username" , validators=[InputRequired(),Length(min=4,max=25)])
     password = PasswordField("password" , validators=[InputRequired(),Length(min=8,max=75)])
+
+
 @app.route('/',methods=["POST","GET"])
 def index():
     form = loginForm()
 
     if form.validate_on_submit():
-        return "<h1>" + form.username.data + " " + form.password.data + User.password + User.username +"</h1>"
-        # user = User.query.filter_by(username = form.username.data).first()
-        # if user:
-        #     if User.password == form.password.data:
-        #         return redirect(url_for(dashboard))
-        #     else:
-        #         return "<h1>Invalid Username or Password</h1>"
+        # return "<h1>" + form.username.data + " " + form.password.data + User.password + User.username +"</h1>"
+        user = User.query.filter_by(username = form.username.data).first()
+        
+        if user:
+            if user.password == form.password.data:
+                return render_template("mai.html")
+        else:
+            
+            return "<h1>Invalid Username or Password</h1>"
     return render_template("index.html",form=form)
 
 
@@ -62,12 +75,78 @@ def signup():
     return render_template("signup.html",form= form)
 
 
-@app.route('/dashboard')
-def dashboard():
-    return 'Hello, World!'
+@app.route('/dashboard', methods=["POST","GET"])
+def cap_data():
+    if request.method=="POST":
+        id_student = request.form.get("id_student")
+        name = request.form.get("name")
+        
+        dirName="Images/"+name+id_student
+        
+        os.mkdir(dirName)
+
+    
+    
+    cap = cv2.VideoCapture(0)
+    count = 0
+    while True:
+
+        ret, frame = cap.read()
+        if  frame is not None:
+            count += 1
+            faces = face_classifier.detectMultiScale(frame, 1.3, 5)
+            
+        
+            
+        
+            
+            # Crop all faces found
+        for (x,y,w,h) in faces:
+            x=x-10
+            y=y-10
+            cropped_face = frame[y:y+h+50, x:x+w+50]
+
+            face = cv2.resize(cropped_face, (400, 400))
+            #face = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
+
+            # Save file in specified directory with unique name
+            file_name_path = dirName + "/" + str(count) + '.jpg'
+            cv2.imwrite(file_name_path, face)
+
+            # Put count on images and display live count
+            cv2.putText(face, str(count), (50, 50), cv2.FONT_HERSHEY_COMPLEX, 1, (0,255,0), 2)
+            cv2.imshow('Face Cropper', face)
+        else:
+            print("Face not found")
+            pass
+                 
+
+        if cv2.waitKey(1) == 13 or count == 200: #13 is the Enter Key
+            break
+
+        
+
+
+    cap.release()
+    cv2.destroyAllWindows()      
+    print("Collecting Samples Complete")
+        
+    return render_template('train.html',name = name,id="id_student")
+
+@app.route('/train',methods=["GET","POST"])
+def train_face():
+    if request.method=="POST":
+        name = request.get("name")
+        idss = request.get("id_student")
+
+    return "Name&id are {0} and {1}".format(name,idss)
+        
+    for i in range(1,201):
+        path = "Images/" + name + "/"+ str(i) + '.jpg'
+
+        
 
 
 if __name__ == "__main__":
     app.run(debug = True)
     db.create_all()
-    
