@@ -40,16 +40,21 @@ Attendance Portal
       </div>
       <div class="container">
 
-        <form class="form-signin" method="POST" action="/">
+        <form class="form-signin needs-validation" novalidate  method="POST" action="/">
           <h2 class="form-signin-heading">Please sign in</h2>
           {{form.hidden_tag()}}
           {{wtf.form_field(form.username)}}
           {{wtf.form_field(form.password)}}
           {{wtf.form_field(form.remember)}}
           <button class="btn btn-lg btn-primary btn-block" type="submit">Sign in</button>
+          <div class="invalid-feedback">
+            Invalid username or password12
+          </div>
         </form>
   
       </div>
 
     </div><!-- /.container -->
 {% endblock %}
+
+
