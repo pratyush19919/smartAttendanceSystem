@@ -6,6 +6,8 @@ from wtforms.validators import InputRequired,Email,Length
 import sqlite3
 from flask_sqlalchemy import SQLAlchemy
 from PIL import Image
+from train_data import get_faces_id
+
 
 import cv2
 import numpy as np
@@ -13,8 +15,9 @@ import os
 
 
 
+
 app = Flask(__name__)
-face_classifier = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+faces_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
 conn = sqlite3.connect("user_database.db")
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:////user_database.db"
 
@@ -26,6 +29,8 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 
 db = SQLAlchemy(app)
+
+recognizer = cv2.face.LBPHFaceRecognizer_create()
 
 
 class User(db.Model):
@@ -56,8 +61,12 @@ def index():
         
         if user:
             if user.password == form.password.data:
-                return render_template("mai.html")
-        else:
+                if user.username == "admin":
+                    return render_template("admin.html")
+        
+                else:
+                    return render_template("teacher.html")
+        else:   
             
             return "<h1>Invalid Username or Password</h1>"
     return render_template("index.html",form=form)
@@ -94,7 +103,7 @@ def cap_data():
         ret, frame = cap.read()
         if  frame is not None:
             count += 1
-            faces = face_classifier.detectMultiScale(frame, 1.3, 5)
+            faces = faces_cascade.detectMultiScale(frame, 1.3, 5)
             
         
             
@@ -107,11 +116,12 @@ def cap_data():
             cropped_face = frame[y:y+h+50, x:x+w+50]
 
             face = cv2.resize(cropped_face, (400, 400))
+            gray=cv2.cvtColor(face,cv2.COLOR_RGB2GRAY)
             #face = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
 
             # Save file in specified directory with unique name
             file_name_path = dirName + "/" + str(count) + '.jpg'
-            cv2.imwrite(file_name_path, face)
+            cv2.imwrite(file_name_path, gray)
 
             # Put count on images and display live count
             cv2.putText(face, str(count), (50, 50), cv2.FONT_HERSHEY_COMPLEX, 1, (0,255,0), 2)
@@ -135,14 +145,31 @@ def cap_data():
 
 @app.route('/train',methods=["GET","POST"])
 def train_face():
-    if request.method=="POST":
-        name = request.get("name")
-        idss = request.get("id_student")
+    if request.method == "POST":
+        name = request.form.get("name")
 
-    return "Name&id are {0} and {1}".format(name,idss)
-        
-    for i in range(1,201):
-        path = "Images/" + name + "/"+ str(i) + '.jpg'
+    faces, ids = get_faces_id("Images/") 
+    for i in range(0, len(ids)):
+        ids[i] = int(ids[i]) 
+
+    recognizer.train(faces, np.array(ids))
+    recognizer.write("trained_data/trainer.yml")
+
+    return "<h1>Face trained </h1>"
+
+
+@app.route("/class1")
+def class1():
+    return render_template("class1.html")
+
+@app.route("/class2")
+def class2():
+    return render_template("class2.html")
+
+@app.route("/take_att")
+def take_att():
+    return "Attendance taken"
+
 
         
 
